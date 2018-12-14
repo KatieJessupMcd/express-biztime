@@ -15,19 +15,26 @@ router.get('/', async function(req, res, next) {
 });
 
 router.get('/:code', async function(req, res, next) {
-  let code = req.params.code;
-  // console.log('this is our request param: ' + code);
-
   try {
-    const results = await db.query(
-      `SELECT code, name, description FROM companies WHERE code = $1`,
-      [code]
+    const result = await db.query(
+      `SELECT code, name, description, invoices.id, invoices.amt, invoices.paid, invoices.add_date, invoices.paid_date FROM companies
+      JOIN invoices on companies.code = invoices.comp_code
+      WHERE code = $1`,
+      [req.params.code]
     );
-    // TODO should throw a 404 response
-    // console.log('where is our error?!');
-    return res.json({ company: results.rows });
+    let { id, amt, paid, add_date, paid_date } = result.rows[0];
+    let { code, name, description } = result.rows[0];
+    console.log(result);
+    console.log(`This is result rows : ${result.rows}`);
+    return res.json({
+      company: {
+        code,
+        name,
+        description,
+        invoice: [id, amt, paid, add_date, paid_date]
+      }
+    });
   } catch (err) {
-    // console.log('we made it inside error! yay!');
     return next(err);
   }
 });
@@ -60,6 +67,10 @@ router.patch('/:code', async function(req, res, next) {
       [name, description, req.params.code]
     );
 
+    if (result.rows.length === 0) {
+      throw new APIError('Company cannot be found', 404);
+    }
+
     return res.json({ company: result.rows[0] });
   } catch (err) {
     return next(err);
@@ -71,6 +82,10 @@ router.delete('/:code', async function(req, res, next) {
     const result = await db.query('DELETE FROM companies WHERE code = $1', [
       req.params.code
     ]);
+
+    if (result.rows.length === 0) {
+      throw new APIError('Company cannot be found', 404);
+    }
 
     return res.json({ status: 'deleted' });
   } catch (err) {
